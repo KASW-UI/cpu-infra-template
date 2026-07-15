@@ -1,0 +1,16 @@
+runtime/
+logs/
+snapshots/
+install/
+config/
+deploy/k8s/*
+deploy/helm/*
+!deploy/k8s/.gitkeep
+!deploy/helm/.gitkeep
+src/
+.git
+.DS_Store
+*.pyc
+__pycache__
+*.egg-info
+.idea/

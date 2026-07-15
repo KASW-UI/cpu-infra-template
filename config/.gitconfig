@@ -1,0 +1,42 @@
+[user]
+    name  = Your Name
+    email = you@example.com
+
+[core]
+    editor     = vim
+    pager      = less -FRSX
+    whitespace = fix,-indent-with-non-tab,trailing-space,cr-at-eol
+
+[merge]
+    tool = vimdiff
+
+[diff]
+    tool  = vimdiff
+    color = auto
+
+[pull]
+    ff = only
+
+[push]
+    default = simple
+
+[init]
+    defaultBranch = main
+
+[color]
+    ui = auto
+
+[alias]
+    st     = status -sb
+    co     = checkout
+    ci     = commit
+    br     = branch
+    lg     = log --oneline --graph --decorate --all -20
+    unstage = reset HEAD --
+    last   = log -1 HEAD
+
+[filter "lfs"]
+    clean    = git-lfs clean -- %f
+    smudge   = git-lfs smudge -- %f
+    process  = git-lfs filter-process
+    required = true

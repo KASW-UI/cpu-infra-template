@@ -1,0 +1,47 @@
+# ── clang-format for CUDA / C++ ────────────────────────────────────────────────
+#
+#   Usage:
+#       clang-format -style=file -i file.cu
+#
+# ────────────────────────────────────────────────────────────────────────────────
+
+BasedOnStyle: Google
+
+IndentWidth:     4
+TabWidth:        4
+UseTab:          Never
+ColumnLimit:     100
+
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignOperands: Align
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass:      true
+  AfterControlStatement: Never
+  AfterEnum:       true
+  AfterFunction:   true
+  AfterNamespace:  false
+  AfterStruct:     true
+  AfterUnion:      true
+  BeforeElse:      false
+  BeforeCatch:     false
+
+IncludeBlocks:   Preserve
+SortIncludes:    true
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# CUDA kernel launch syntax
+SpaceAfterCStyleCast: false
+
+SpacesBeforeTrailingComments: 2
+SpacesInAngles:  Never

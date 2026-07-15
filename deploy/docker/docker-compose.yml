@@ -1,0 +1,32 @@
+services:
+  gpu-dev:
+    image: ${IMAGE_NAME:-gpu-infra-template}:${IMAGE_TAG:-cuda12.4-torch2.6}
+    container_name: gpu-infra-dev
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    env_file:
+      - ../../configs/nccl.env
+      - ../../configs/torch.env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    shm_size: 16gb
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    volumes:
+      - ../../src:/workspace/src
+      - ../../scripts:/workspace/scripts
+      - ../../runtime/logs:/workspace/logs
+      - ../../runtime/snapshots:/workspace/snapshots
+      - ~/.ssh:/home/dev/.ssh:ro
+      - ~/.gitconfig:/home/dev/.gitconfig:ro
+      - ~/.tmux.conf:/home/dev/.tmux.conf:ro
+    stdin_open: true
+    tty: true
+    user: "1000:1000"
