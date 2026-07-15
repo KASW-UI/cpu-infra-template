@@ -23,6 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/powershell /opt/hostedtoolcache /usr/local/.ghcup
+          sudo docker system prune -af 2>/dev/null || true
+          df -h /
+
       - name: Read versions
         id: versions
         run: |
