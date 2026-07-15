@@ -23,6 +23,9 @@ RUN rm -f /etc/apt/sources.list.d/*.list 2>/dev/null; \
     echo "deb http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     gcc g++ \
@@ -36,6 +39,7 @@ RUN rm -f /etc/apt/sources.list.d/*.list 2>/dev/null; \
     libnccl-dev libnccl2 \
     openssh-client \
     sudo \
+    python3.12 python3.12-venv python3.12-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -g 1000 dev && \
@@ -46,17 +50,12 @@ USER dev
 ENV HOME=/home/dev
 WORKDIR /workspace
 
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/home/dev/.local/bin:${PATH}"
-
-RUN uv python install ${PYTHON_VERSION}
-
-RUN uv venv --python ${PYTHON_VERSION} /workspace/.venv
+RUN python3.12 -m venv /workspace/.venv
 ENV PATH="/workspace/.venv/bin:${PATH}"
 
 COPY --chown=dev:dev env/requirements.lock /tmp/requirements.lock
 
-RUN uv pip install -r /tmp/requirements.lock \
+RUN pip install --no-cache-dir -r /tmp/requirements.lock \
     --index-url https://download.pytorch.org/whl/cu124 \
     --extra-index-url https://pypi.org/simple
 
