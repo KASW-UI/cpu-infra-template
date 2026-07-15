@@ -58,15 +58,6 @@ COPY --chown=dev:dev env/requirements.lock /tmp/requirements.lock
 
 RUN uv pip install -r /tmp/requirements.lock
 
-RUN uv pip install \
-    torch==${TORCH_VERSION}+cu124 \
-    torchvision \
-    torchaudio \
-    --index-url https://download.pytorch.org/whl/cu124 && \
-    uv pip install triton==${TRITON_VERSION}
-
-RUN uv pip install cmake ninja
-
 RUN mkdir -p /home/dev/.config/gpu-infra
 COPY --chown=dev:dev configs/nccl.env /home/dev/.config/gpu-infra/nccl.env
 COPY --chown=dev:dev configs/torch.env /home/dev/.config/gpu-infra/torch.env
