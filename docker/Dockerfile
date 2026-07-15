@@ -17,7 +17,9 @@ LABEL torch="${TORCH_VERSION}+cu124"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN rm -rf /var/lib/apt/lists/* && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     gcc g++ \
     clang clangd lld \
