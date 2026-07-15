@@ -56,7 +56,9 @@ ENV PATH="/workspace/.venv/bin:${PATH}"
 
 COPY --chown=dev:dev env/requirements.lock /tmp/requirements.lock
 
-RUN uv pip install -r /tmp/requirements.lock
+RUN uv pip install -r /tmp/requirements.lock \
+    --index-url https://download.pytorch.org/whl/cu124 \
+    --extra-index-url https://pypi.org/simple
 
 RUN mkdir -p /home/dev/.config/gpu-infra
 COPY --chown=dev:dev configs/nccl.env /home/dev/.config/gpu-infra/nccl.env
