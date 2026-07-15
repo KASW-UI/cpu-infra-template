@@ -2,7 +2,8 @@ runtime/
 logs/
 snapshots/
 install/
-config/
+config/*
+!config/.tmux.conf
 deploy/k8s/*
 deploy/helm/*
 !deploy/k8s/.gitkeep
