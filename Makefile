@@ -3,7 +3,7 @@
 include env/versions.env
 export
 
-REGISTRY   ?= ghcr.io/KASW-UI/gpu-infra-template
+REGISTRY   ?= ghcr.io/kasw-ui/gpu-infra-template
 IMAGE_NAME ?= gpu-infra-template
 IMAGE_TAG  ?= cuda$(CUDA_VERSION)-torch$(TORCH_VERSION)
 

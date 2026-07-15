@@ -63,7 +63,7 @@ Two modes:
 
 **A. Pull pre-built image from GHCR (fast, ~30s)**
 ```bash
-git clone https://github.com/KASW-UI/gpu-infra-template.git
+git clone https://github.com/kasw-ui/gpu-infra-template.git
 cd gpu-infra-template
 
 make pull       # docker pull from ghcr.io (skip 15-30min build)
@@ -77,7 +77,7 @@ make clean      # Remove image and container
 
 **B. Build locally (if you need to customize)**
 ```bash
-git clone https://github.com/KASW-UI/gpu-infra-template.git
+git clone https://github.com/kasw-ui/gpu-infra-template.git
 cd gpu-infra-template
 
 make build      # Build Docker image with locked versions (~15-30min)
