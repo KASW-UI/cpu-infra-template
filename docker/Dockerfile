@@ -52,10 +52,11 @@ WORKDIR /workspace
 
 RUN python3.12 -m venv /workspace/.venv
 ENV PATH="/workspace/.venv/bin:${PATH}"
+RUN pip install --upgrade pip setuptools wheel
 
 COPY --chown=dev:dev env/requirements.lock /tmp/requirements.lock
 
-RUN pip install --no-cache-dir -r /tmp/requirements.lock \
+RUN df -h / && free -m && pip install --no-cache-dir -r /tmp/requirements.lock \
     --index-url https://download.pytorch.org/whl/cu124 \
     --extra-index-url https://pypi.org/simple
 
