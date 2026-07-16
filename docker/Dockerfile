@@ -1,12 +1,8 @@
 ARG UBUNTU_VERSION=22.04
-ARG PYTHON_VERSION=3.12.10
 
 FROM ubuntu:${UBUNTU_VERSION}
 
-ARG PYTHON_VERSION
-
 LABEL project="cpu-infra-template"
-LABEL python="${PYTHON_VERSION}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -16,24 +12,19 @@ RUN rm -f /etc/apt/sources.list.d/*.list 2>/dev/null; \
     echo "deb http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        ca-certificates curl software-properties-common gpg-agent \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update
-
-RUN apt-get install -y --no-install-recommends \
     build-essential \
     gcc g++ \
     clang clangd lld \
     gdb valgrind strace ltrace \
     cmake ninja-build \
     make git git-lfs pkg-config \
-    wget \
+    curl wget ca-certificates \
     vim tmux htop btop \
     jq ripgrep fd-find bat fzf \
     libssl-dev libffi-dev zlib1g-dev \
     openssh-client \
     sudo \
-    python3.12 python3.12-venv python3.12-dev \
+    python3 python3-pip python3-venv python3-dev \
     libomp-dev \
     openmpi-bin libopenmpi-dev \
     libopenblas-dev liblapack-dev libeigen3-dev \
@@ -61,7 +52,7 @@ USER dev
 ENV HOME=/home/dev
 WORKDIR /workspace
 
-RUN python3.12 -m venv /workspace/.venv
+RUN python3 -m venv /workspace/.venv
 ENV PATH="/workspace/.venv/bin:${PATH}"
 RUN pip install --upgrade pip setuptools wheel
 

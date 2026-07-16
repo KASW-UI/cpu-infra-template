@@ -15,7 +15,6 @@ build:
 	@echo "==> Building $(IMAGE_NAME):$(IMAGE_TAG)"
 	docker build \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
-		--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 		-t $(IMAGE_NAME):$(IMAGE_TAG) \
 		-f $(DOCKERFILE) \
 		$(CONTEXT)
@@ -27,7 +26,6 @@ build:
 			digest: .RepoDigests[0], \
 			base_image: "ubuntu:$(UBUNTU_VERSION)", \
 			built_at: .Created, \
-			python: "$(PYTHON_VERSION)", \
 			os: .Os, \
 			architecture: .Architecture, \
 			docker_version: .DockerVersion, \
@@ -78,11 +76,11 @@ clean:
 lock:
 	@echo "==> Generating requirements.lock"
 	uv pip compile env/requirements.in \
-		--python-version $(PYTHON_VERSION) \
+		--python-version 3.10 \
 		-o env/requirements.lock
 	@echo "==> Generating requirements-hash.lock"
 	uv pip compile env/requirements.in \
-		--python-version $(PYTHON_VERSION) \
+		--python-version 3.10 \
 		--generate-hashes \
 		-o env/requirements-hash.lock
 	@echo "==> Lock files generated"
