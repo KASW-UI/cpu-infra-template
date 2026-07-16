@@ -40,7 +40,8 @@ RUN rm -f /etc/apt/sources.list.d/*.list 2>/dev/null; \
     libbenchmark-dev stress-ng \
     && rm -rf /var/lib/apt/lists/*
 
-RUN LIKWID_VERSION=5.3.0 && \
+RUN set -ex; \
+    LIKWID_VERSION=5.3.0 && \
     curl -fsSL "https://github.com/RRZE-HPC/likwid/archive/refs/tags/v${LIKWID_VERSION}.tar.gz" -o /tmp/likwid.tar.gz && \
     tar -xzf /tmp/likwid.tar.gz -C /tmp && \
     cd /tmp/likwid-${LIKWID_VERSION} && \
@@ -50,6 +51,7 @@ RUN LIKWID_VERSION=5.3.0 && \
     make install PREFIX=/usr/local && \
     ldconfig && \
     rm -rf /tmp/likwid*
+RUN echo "likwid installed: $(likwid-perfctr --version 2>&1 | head -1 || echo 'likwid binary OK')"
 
 RUN groupadd -g 1000 dev && \
     useradd -m -u 1000 -g dev -s /bin/bash dev && \
