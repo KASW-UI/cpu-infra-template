@@ -97,22 +97,7 @@ jobs:
         run: |
           docker run --rm \
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }} \
-            bash -c "
-              cat > /tmp/omp_test.cpp << 'EOF'
-#include <omp.h>
-#include <cstdio>
-int main() {
-    #pragma omp parallel
-    {
-        #pragma omp single
-        printf(\"Threads: %d\n\", omp_get_num_threads());
-    }
-    return 0;
-}
-EOF
-              g++ -fopenmp /tmp/omp_test.cpp -o /tmp/omp_test
-              /tmp/omp_test
-            "
+            bash /workspace/scripts/hpc-bench.sh
 
       - name: Smoke test — MPI
         run: |
