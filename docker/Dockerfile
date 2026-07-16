@@ -14,19 +14,20 @@ RUN rm -f /etc/apt/sources.list.d/*.list 2>/dev/null; \
     echo "deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" > /etc/apt/sources.list && \
     echo "deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
     echo "deb http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
+        ca-certificates curl software-properties-common gpg-agent \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update
+
+RUN apt-get install -y --no-install-recommends \
     build-essential \
     gcc g++ \
     clang clangd lld \
     gdb valgrind strace ltrace \
     cmake ninja-build \
     make git git-lfs pkg-config \
-    curl wget ca-certificates \
+    wget \
     vim tmux htop btop \
     jq ripgrep fd-find bat fzf \
     libssl-dev libffi-dev zlib1g-dev \
@@ -51,7 +52,6 @@ RUN set -ex; \
     make install PREFIX=/usr/local && \
     ldconfig && \
     rm -rf /tmp/likwid*
-RUN echo "likwid installed: $(likwid-perfctr --version 2>&1 | head -1 || echo 'likwid binary OK')"
 
 RUN groupadd -g 1000 dev && \
     useradd -m -u 1000 -g dev -s /bin/bash dev && \
