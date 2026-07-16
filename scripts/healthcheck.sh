@@ -17,95 +17,138 @@ info() { echo -e "\n${BOLD}${BLUE}── $1 ──${RESET}"; }
 
 echo
 echo -e "${BOLD}========================================================${RESET}"
-echo -e "${BOLD} GPU Infrastructure Health Check${RESET}"
+echo -e "${BOLD} CPU HPC Infrastructure Health Check${RESET}"
 echo -e "${BOLD}========================================================${RESET}"
 
 info "System"
 pass "Kernel: $(uname -r)"
 pass "OS: $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d= -f2 | tr -d '"' || echo 'unknown')"
 
-info "NVIDIA Driver"
-if nvidia-smi >/dev/null 2>&1; then
-    DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
-    pass "Driver: ${DRIVER_VER}"
-else
-    fail "nvidia-smi unavailable"
-fi
-
-info "CUDA Toolk"
-if command -v nvcc >/dev/null 2>&1; then
-    NVCC_VER=$(nvcc --version 2>/dev/null | grep "release" | awk '{print $5}' | tr -d ',')
-    pass "nvcc: ${NVCC_VER}"
-else
-    fail "nvcc not found"
-fi
-
-if [[ -d /usr/local/cuda ]]; then
-    pass "CUDA_HOME: /usr/local/cuda"
-else
-    fail "CUDA_HOME missing"
-fi
-
-info "GPU Info"
-if nvidia-smi >/dev/null 2>&1; then
-    GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
-    pass "GPU count: ${GPU_COUNT}"
-    nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | while IFS= read -r name; do
-        echo -e "      ${name}"
+info "CPU Topology"
+if command -v lscpu >/dev/null 2>&1; then
+    lscpu 2>/dev/null | grep -E "Model name|Socket|Core|Thread|CPU\(s\):|NUMA" | while IFS= read -r line; do
+        pass "${line}"
     done
 else
-    fail "Cannot query GPU"
+    fail "lscpu unavailable"
+fi
+
+info "Compilers"
+for cmd in gcc g++ clang gdb; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+        VER=$("$cmd" --version 2>/dev/null | head -1)
+        pass "$cmd: ${VER}"
+    else
+        fail "$cmd not found"
+    fi
+done
+
+info "Build System"
+for cmd in cmake ninja make; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+        VER=$("$cmd" --version 2>/dev/null | head -1)
+        pass "$cmd: ${VER}"
+    else
+        fail "$cmd not found"
+    fi
+done
+
+info "OpenMP"
+cat > /tmp/omp_hc.cpp << 'EOF'
+#include <omp.h>
+#include <cstdio>
+int main() {
+    #pragma omp parallel
+    {
+        #pragma omp single
+        printf("  Threads: %d\n", omp_get_num_threads());
+    }
+    return 0;
+}
+EOF
+if g++ -fopenmp /tmp/omp_hc.cpp -o /tmp/omp_hc 2>/dev/null && /tmp/omp_hc; then
+    pass "OpenMP — compiled and ran"
+else
+    fail "OpenMP — compile or run failed"
+fi
+rm -f /tmp/omp_hc.cpp /tmp/omp_hc
+
+info "MPI"
+if command -v mpirun >/dev/null 2>&1; then
+    MPI_VER=$(mpirun --version 2>/dev/null | head -1)
+    pass "MPI: ${MPI_VER}"
+
+    cat > /tmp/mpi_hc.cpp << 'EOF'
+#include <mpi.h>
+#include <cstdio>
+int main(int argc, char** argv) {
+    MPI_Init(&argc, &argv);
+    int r, s;
+    MPI_Comm_rank(MPI_COMM_WORLD, &r);
+    MPI_Comm_size(MPI_COMM_WORLD, &s);
+    if (r == 0) printf("  MPI ranks: %d\n", s);
+    MPI_Finalize();
+    return 0;
+}
+EOF
+    if mpic++ /tmp/mpi_hc.cpp -o /tmp/mpi_hc 2>/dev/null && mpirun --allow-run-as-root -np 4 /tmp/mpi_hc 2>/dev/null; then
+        pass "MPI — 4-rank ring OK"
+    else
+        fail "MPI — communication test failed"
+    fi
+    rm -f /tmp/mpi_hc.cpp /tmp/mpi_hc
+else
+    fail "MPI not installed"
+fi
+
+info "Math Libraries"
+for lib in libopenblas-dev liblapack-dev libeigen3-dev; do
+    if dpkg -l 2>/dev/null | grep -q "$lib"; then
+        pass "$lib"
+    else
+        fail "$lib missing"
+    fi
+done
+
+info "Profiling Tools"
+for tool in perf numactl lstopo likwid-perfctr; do
+    if command -v "$tool" >/dev/null 2>&1; then
+        pass "$tool"
+    else
+        fail "$tool"
+    fi
+done
+
+info "perf stat — quick smoke test"
+if command -v perf >/dev/null 2>&1; then
+    if perf stat -e cycles,instructions -- /bin/true 2>&1 | grep -q "cycles"; then
+        pass "perf stat — cycles/instructions OK"
+    else
+        fail "perf stat — check perf_event_paranoid"
+    fi
+else
+    fail "perf not available"
 fi
 
 info "Python"
-if command -v python >/dev/null 2>&1; then
-    PY_VER=$(python --version 2>&1)
+if command -v python3 >/dev/null 2>&1; then
+    PY_VER=$(python3 --version 2>&1)
     pass "${PY_VER}"
 else
-    fail "python not found"
+    fail "python3 not found"
 fi
 
-info "PyTorch"
-python - <<'EOF'
-import sys, torch
-print(f"  Torch: {torch.__version__}")
-cuda_ok = torch.cuda.is_available()
-print(f"  CUDA available: {cuda_ok}")
-if cuda_ok:
-    print(f"  GPU count: {torch.cuda.device_count()}")
-    for i in range(torch.cuda.device_count()):
-        print(f"    [{i}] {torch.cuda.get_device_name(i)}")
-sys.exit(0 if cuda_ok else 1)
+python3 - <<'EOF'
+import numpy, scipy, pandas, matplotlib
+print(f"  numpy: {numpy.__version__}")
+print(f"  scipy: {scipy.__version__}")
+print(f"  pandas: {pandas.__version__}")
+print(f"  matplotlib: {matplotlib.__version__}")
 EOF
 if [[ $? -eq 0 ]]; then
-    pass "PyTorch CUDA"
+    pass "Python scientific stack"
 else
-    fail "PyTorch CUDA"
-fi
-
-info "Triton"
-python - <<'EOF' 2>&1
-import triton
-print(f"  Triton: {triton.__version__}")
-EOF
-if [[ $? -eq 0 ]]; then
-    pass "Triton"
-else
-    fail "Triton"
-fi
-
-info "NCCL"
-if dpkg -l 2>/dev/null | grep -q libnccl-dev; then
-    NCCL_VER=$(dpkg -l 2>/dev/null | grep libnccl-dev | awk '{print $3}')
-    pass "libnccl-dev: ${NCCL_VER}"
-else
-    fail "libnccl-dev not found"
-fi
-
-if command -v all_reduce_perf >/dev/null 2>&1; then
-    pass "nccl-tests: available"
-else
-    fail "nccl-tests not installed (run make nccl-test to compile)"
+    fail "Python imports failed"
 fi
 
 info "Disk"

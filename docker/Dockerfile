@@ -1,19 +1,12 @@
-ARG CUDA_VERSION=12.4.1
-ARG PYTHON_VERSION=3.12.10
-ARG TORCH_VERSION=2.6.0
-ARG TRITON_VERSION=3.2.0
 ARG UBUNTU_VERSION=22.04
+ARG PYTHON_VERSION=3.12.10
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+FROM ubuntu:${UBUNTU_VERSION}
 
 ARG PYTHON_VERSION
-ARG TORCH_VERSION
-ARG TRITON_VERSION
 
-LABEL project="gpu-infra-template"
-LABEL cuda="${CUDA_VERSION}"
+LABEL project="cpu-infra-template"
 LABEL python="${PYTHON_VERSION}"
-LABEL torch="${TORCH_VERSION}+cu124"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -30,17 +23,30 @@ RUN rm -f /etc/apt/sources.list.d/*.list 2>/dev/null; \
     build-essential \
     gcc g++ \
     clang clangd lld \
+    gdb valgrind strace ltrace \
     cmake ninja-build \
-    make git git-lfs \
+    make git git-lfs pkg-config \
     curl wget ca-certificates \
     vim tmux htop btop \
     jq ripgrep fd-find bat fzf \
     libssl-dev libffi-dev zlib1g-dev \
-    libnccl-dev libnccl2 \
     openssh-client \
     sudo \
     python3.12 python3.12-venv python3.12-dev \
+    libomp-dev \
+    openmpi-bin libopenmpi-dev \
+    libopenblas-dev liblapack-dev libeigen3-dev \
+    linux-tools-generic numactl hwloc \
+    libbenchmark-dev stress-ng \
     && rm -rf /var/lib/apt/lists/*
+
+RUN LIKWID_VERSION=5.3.0 && \
+    curl -fsSL "https://github.com/RRZE-HPC/likwid/archive/refs/tags/v${LIKWID_VERSION}.tar.gz" -o /tmp/likwid.tar.gz && \
+    tar -xzf /tmp/likwid.tar.gz -C /tmp && \
+    cd /tmp/likwid-${LIKWID_VERSION} && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/likwid*
 
 RUN groupadd -g 1000 dev && \
     useradd -m -u 1000 -g dev -s /bin/bash dev && \
@@ -56,14 +62,12 @@ RUN pip install --upgrade pip setuptools wheel
 
 COPY --chown=dev:dev env/requirements.lock /tmp/requirements.lock
 
-RUN pip install --no-cache-dir -r /tmp/requirements.lock \
-    --index-url https://download.pytorch.org/whl/cu124 \
-    --extra-index-url https://pypi.org/simple
+RUN pip install --no-cache-dir -r /tmp/requirements.lock
 
-RUN mkdir -p /home/dev/.config/gpu-infra
-COPY --chown=dev:dev configs/nccl.env /home/dev/.config/gpu-infra/nccl.env
-COPY --chown=dev:dev configs/torch.env /home/dev/.config/gpu-infra/torch.env
-COPY --chown=dev:dev configs/docker.env /home/dev/.config/gpu-infra/docker.env
+RUN mkdir -p /home/dev/.config/cpu-infra
+COPY --chown=dev:dev configs/openmp.env /home/dev/.config/cpu-infra/openmp.env
+COPY --chown=dev:dev configs/mpi.env /home/dev/.config/cpu-infra/mpi.env
+COPY --chown=dev:dev configs/hpc.env /home/dev/.config/cpu-infra/hpc.env
 
 RUN mkdir -p /workspace/scripts
 COPY --chown=dev:dev scripts/ /workspace/scripts/
@@ -74,10 +78,6 @@ COPY --chown=dev:dev docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 USER root
 RUN chmod +x /usr/local/bin/entrypoint.sh
 USER dev
-
-ENV CUDA_HOME=/usr/local/cuda
-ENV PATH="${CUDA_HOME}/bin:${PATH}"
-ENV LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${CUDA_HOME}/compat:${LD_LIBRARY_PATH}"
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bash"]

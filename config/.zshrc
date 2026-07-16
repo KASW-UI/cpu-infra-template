@@ -1,15 +1,15 @@
-# ── GPU Development Environment ────────────────────────────────────────────────
+# ── CPU HPC Development Environment ────────────────────────────────────────────
 #
 #   Source this from your ~/.zshrc:
 #
-#       source ~/gpu-dev-env/config/.zshrc
+#       source ~/cpu-infra-template/config/.zshrc
 #
 #   Or let install/shell.sh wire it for you automatically.
 #
 # ────────────────────────────────────────────────────────────────────────────────
 
-GPU_DEV_CONFIG="$HOME/gpu-dev-env/config"
+CPU_DEV_CONFIG="$HOME/cpu-infra-template/config"
 
-[[ -f "$GPU_DEV_CONFIG/exports.zsh" ]]  && source "$GPU_DEV_CONFIG/exports.zsh"
-[[ -f "$GPU_DEV_CONFIG/aliases.zsh" ]]  && source "$GPU_DEV_CONFIG/aliases.zsh"
-[[ -f "$GPU_DEV_CONFIG/.p10k.zsh" ]]    && source "$GPU_DEV_CONFIG/.p10k.zsh"
+[[ -f "$CPU_DEV_CONFIG/exports.zsh" ]]  && source "$CPU_DEV_CONFIG/exports.zsh"
+[[ -f "$CPU_DEV_CONFIG/aliases.zsh" ]]  && source "$CPU_DEV_CONFIG/aliases.zsh"
+[[ -f "$CPU_DEV_CONFIG/.p10k.zsh" ]]    && source "$CPU_DEV_CONFIG/.p10k.zsh"

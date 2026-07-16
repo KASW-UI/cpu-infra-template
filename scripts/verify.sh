@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# GPU Development Environment Verification
+# CPU HPC Development Environment Verification
 #
 # Detects container vs bare-metal and adjusts checks accordingly.
 ###############################################################################
 
 set -Eeuo pipefail
-
-################################################################################
-# Colors
-################################################################################
 
 GREEN="\033[32m"
 BLUE="\033[34m"
@@ -23,175 +19,252 @@ FAIL=0
 
 pass() { echo -e "  ${GREEN}✔${RESET} $1"; ((PASS++)); }
 fail() { echo -e "  ${RED}✘${RESET} $1"; ((FAIL++)); }
-info() { echo -e "\n${BLUE}[INFO]${RESET} $1"; step_title="$1"; }
+info() { echo -e "\n${BLUE}[INFO]${RESET} $1"; }
 
 IS_CONTAINER=false
 if [[ -f /.dockerenv ]] || grep -q docker /proc/1/cgroup 2>/dev/null; then
     IS_CONTAINER=true
 fi
 
-################################################################################
-# Header
-################################################################################
-
 echo
 echo "======================================================"
 if $IS_CONTAINER; then
-    echo " GPU Dev Environment Verification (Container Mode)"
+    echo " CPU HPC Environment Verification (Container Mode)"
 else
-    echo " GPU Development Environment Verification"
+    echo " CPU HPC Development Environment Verification"
 fi
 echo "======================================================"
 echo
 
 ################################################################################
-# NVIDIA Driver
+# CPU Info
 ################################################################################
 
-info "Checking NVIDIA Driver..."
+info "CPU Information"
 
-if command -v nvidia-smi >/dev/null 2>&1; then
-    nvidia-smi >/dev/null
-    pass "nvidia-smi"
+if command -v lscpu >/dev/null 2>&1; then
+    MODEL=$(lscpu 2>/dev/null | grep "Model name" | cut -d':' -f2 | xargs)
+    CORES=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}')
+    SOCKETS=$(lscpu 2>/dev/null | grep "Socket(s):" | awk '{print $2}')
+    pass "CPU: ${CORES} cores × ${SOCKETS} socket(s) — ${MODEL}"
 else
-    fail "nvidia-smi"
+    fail "lscpu unavailable"
 fi
 
 ################################################################################
-# CUDA Compiler
+# Compilers
 ################################################################################
 
-info "Checking CUDA..."
+info "Checking Compilers"
 
-if command -v nvcc >/dev/null 2>&1; then
-    nvcc --version >/dev/null
-    pass "nvcc"
+if command -v gcc >/dev/null 2>&1; then
+    GCC_VER=$(gcc --version 2>/dev/null | head -1)
+    pass "gcc: ${GCC_VER}"
 else
-    fail "nvcc"
+    fail "gcc"
+fi
+
+if command -v g++ >/dev/null 2>&1; then
+    GXX_VER=$(g++ --version 2>/dev/null | head -1)
+    pass "g++: ${GXX_VER}"
+else
+    fail "g++"
+fi
+
+if command -v clang >/dev/null 2>&1; then
+    CLANG_VER=$(clang --version 2>/dev/null | head -1)
+    pass "clang: ${CLANG_VER}"
+else
+    fail "clang"
+fi
+
+if command -v clang++ >/dev/null 2>&1; then
+    pass "clang++"
+else
+    fail "clang++"
+fi
+
+if command -v gdb >/dev/null 2>&1; then
+    pass "gdb"
+else
+    fail "gdb"
 fi
 
 ################################################################################
-# CUDA Samples (skip in container)
+# Build System
 ################################################################################
 
-if ! $IS_CONTAINER; then
+info "Checking Build System"
 
-    DEVICE_QUERY="$HOME/workspace/cuda-samples/bin/x86_64/linux/release/deviceQuery"
+if command -v cmake >/dev/null 2>&1; then
+    CMAKE_VER=$(cmake --version 2>/dev/null | head -1)
+    pass "cmake: ${CMAKE_VER}"
+else
+    fail "cmake"
+fi
 
-    info "Running CUDA Sample..."
+if command -v ninja >/dev/null 2>&1; then
+    NINJA_VER=$(ninja --version 2>/dev/null)
+    pass "ninja: ${NINJA_VER}"
+else
+    fail "ninja"
+fi
 
-    if [[ -x "$DEVICE_QUERY" ]]; then
+if command -v make >/dev/null 2>&1; then
+    pass "make"
+else
+    fail "make"
+fi
 
-        if "$DEVICE_QUERY" >/tmp/deviceQuery.log 2>&1; then
+################################################################################
+# OpenMP
+################################################################################
 
-            pass "deviceQuery"
+info "Checking OpenMP"
 
-        else
+cat > /tmp/omp_check.cpp << 'EOF'
+#include <omp.h>
+#include <cstdio>
+int main() {
+    #pragma omp parallel
+    {
+        #pragma omp single
+        printf("  OpenMP threads: %d\n", omp_get_num_threads());
+    }
+    return 0;
+}
+EOF
 
-            fail "deviceQuery"
+if g++ -fopenmp /tmp/omp_check.cpp -o /tmp/omp_check 2>/dev/null && /tmp/omp_check; then
+    pass "OpenMP"
+else
+    fail "OpenMP"
+fi
+rm -f /tmp/omp_check.cpp /tmp/omp_check
 
-            cat /tmp/deviceQuery.log
+################################################################################
+# MPI
+################################################################################
 
-        fi
+info "Checking MPI"
 
+if command -v mpirun >/dev/null 2>&1; then
+    MPI_VER=$(mpirun --version 2>/dev/null | head -1)
+    pass "mpirun: ${MPI_VER}"
+
+    cat > /tmp/mpi_check.cpp << 'EOF'
+#include <mpi.h>
+#include <cstdio>
+int main(int argc, char** argv) {
+    MPI_Init(&argc, &argv);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    if (rank == 0) printf("  MPI processes: %d\n", size);
+    MPI_Finalize();
+    return 0;
+}
+EOF
+
+    if mpic++ /tmp/mpi_check.cpp -o /tmp/mpi_check 2>/dev/null && mpirun --allow-run-as-root -np 2 /tmp/mpi_check 2>/dev/null; then
+        pass "MPI communication"
     else
-
-        pass "deviceQuery (skipped - not built)"
-
+        fail "MPI communication"
     fi
-
+    rm -f /tmp/mpi_check.cpp /tmp/mpi_check
+else
+    fail "mpirun"
 fi
 
 ################################################################################
-# PyTorch
+# Math Libraries
 ################################################################################
 
-info "Checking PyTorch..."
+info "Checking Math Libraries"
+
+if dpkg -l 2>/dev/null | grep -q libopenblas-dev; then
+    pass "OpenBLAS"
+else
+    fail "OpenBLAS"
+fi
+
+if dpkg -l 2>/dev/null | grep -q liblapack-dev; then
+    pass "LAPACK"
+else
+    fail "LAPACK"
+fi
+
+if dpkg -l 2>/dev/null | grep -q libeigen3-dev; then
+    pass "Eigen3"
+else
+    fail "Eigen3"
+fi
+
+################################################################################
+# Profiling Tools
+################################################################################
+
+info "Checking Profiling Tools"
+
+if command -v perf >/dev/null 2>&1; then
+    PERF_VER=$(perf --version 2>/dev/null | head -1)
+    pass "perf: ${PERF_VER}"
+else
+    fail "perf"
+fi
+
+if command -v numactl >/dev/null 2>&1; then
+    pass "numactl"
+else
+    fail "numactl"
+fi
+
+if command -v lstopo >/dev/null 2>&1; then
+    pass "hwloc (lstopo)"
+else
+    fail "hwloc (lstopo)"
+fi
+
+if command -v likwid-perfctr >/dev/null 2>&1; then
+    pass "likwid"
+else
+    fail "likwid"
+fi
+
+################################################################################
+# Python
+################################################################################
+
+info "Checking Python"
+
+if command -v python3 >/dev/null 2>&1; then
+    PY_VER=$(python3 --version 2>&1)
+    pass "${PY_VER}"
+else
+    fail "python3"
+fi
 
 python3 - <<EOF
-import sys
-import torch
-
-print("  Torch:", torch.__version__)
-print("  CUDA available:", torch.cuda.is_available())
-
-if not torch.cuda.is_available():
-    sys.exit(1)
-
-print("  GPU count:", torch.cuda.device_count())
-for i in range(torch.cuda.device_count()):
-    print(f"  GPU [{i}]:", torch.cuda.get_device_name(i))
+import numpy as np; print(f"  numpy: {np.__version__}")
+import scipy;  print(f"  scipy: {scipy.__version__}")
 EOF
 
-if [[ $? == 0 ]]; then
-    pass "PyTorch CUDA"
+if [[ $? -eq 0 ]]; then
+    pass "numpy / scipy"
 else
-    fail "PyTorch CUDA"
+    fail "numpy / scipy"
 fi
 
 ################################################################################
-# Triton
+# Benchmark Tools
 ################################################################################
 
-info "Checking Triton..."
+info "Checking Benchmark Tools"
 
-python3 - <<EOF
-import triton
-print("  Triton:", triton.__version__)
-EOF
-
-if [[ $? == 0 ]]; then
-    pass "Triton"
+if command -v stress-ng >/dev/null 2>&1; then
+    pass "stress-ng"
 else
-    fail "Triton"
-fi
-
-################################################################################
-# Docker (skip in container)
-################################################################################
-
-if ! $IS_CONTAINER; then
-
-    if command -v docker >/dev/null 2>&1; then
-
-        info "Checking Docker..."
-
-        if docker run --rm hello-world >/dev/null 2>&1; then
-
-            pass "Docker"
-
-        else
-
-            fail "Docker"
-
-        fi
-
-    fi
-
-    ################################################################################
-    # Docker GPU
-    ################################################################################
-
-    if command -v docker >/dev/null 2>&1; then
-
-        info "Checking Docker GPU..."
-
-        if docker run --rm \
-            --gpus all \
-            nvidia/cuda:12.4.0-base-ubuntu$(lsb_release -sr) \
-            nvidia-smi >/dev/null 2>&1
-        then
-
-            pass "Docker GPU"
-
-        else
-
-            fail "Docker GPU"
-
-        fi
-
-    fi
-
+    fail "stress-ng"
 fi
 
 ################################################################################
@@ -199,7 +272,6 @@ fi
 ################################################################################
 
 info "Disk Usage"
-
 df -h /workspace 2>/dev/null || df -h /
 
 ################################################################################
@@ -208,7 +280,6 @@ df -h /workspace 2>/dev/null || df -h /
 
 echo
 echo "======================================================"
-
 echo -e "${GREEN}PASS: ${PASS}${RESET}  ${RED}FAIL: ${FAIL}${RESET}"
 
 if [[ $FAIL -eq 0 ]]; then
@@ -217,6 +288,5 @@ else
     fail "Verification failed with ${FAIL} error(s)."
     exit 1
 fi
-
 echo "======================================================"
 echo

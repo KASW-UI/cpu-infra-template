@@ -10,18 +10,18 @@ alias gco="git checkout"
 alias gp="git push"
 alias gl="git pull"
 
-alias gpu="nvidia-smi"
-alias gpu-top="watch -n1 nvidia-smi"
-
 alias py="python3"
 alias ipy="ipython"
 
-alias cudas="cd ~/workspace/cuda-samples"
-alias tiny="cd ~/workspace/tinygrad"
-alias triton="cd ~/workspace/triton"
-alias vllm="cd ~/workspace/vllm"
-alias sgl="cd ~/workspace/sglang"
-alias mega="cd ~/workspace/Megatron-LM"
-alias llama="cd ~/workspace/llama.cpp"
+alias cpu="lscpu | head -20"
+alias cpu-top="htop"
+alias numastat="numactl --hardware"
+alias topo="lstopo --no-io -.ascii | head -60"
+
+alias perf-stat="perf stat -e cycles,instructions,cache-misses,branch-misses"
+alias perf-top="perf top"
+
+alias build="cmake -B build -G Ninja && ninja -C build"
+alias rebuild="ninja -C build"
 
 alias docker-clean="docker system prune -af"

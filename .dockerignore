@@ -14,4 +14,3 @@ src/
 *.pyc
 __pycache__
 *.egg-info
-.idea/

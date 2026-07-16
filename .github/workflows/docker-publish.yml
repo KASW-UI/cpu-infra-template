@@ -43,7 +43,7 @@ jobs:
       - name: Generate image tags
         id: tags
         run: |
-          VERSION_TAG="cuda${{ steps.versions.outputs.CUDA_VERSION }}-torch${{ steps.versions.outputs.TORCH_VERSION }}"
+          VERSION_TAG="cpu-hpc-ubuntu${{ steps.versions.outputs.UBUNTU_VERSION }}"
           SHA_TAG="sha-${GITHUB_SHA::8}"
           echo "version=${VERSION_TAG}" >> "$GITHUB_OUTPUT"
           echo "sha=${SHA_TAG}" >> "$GITHUB_OUTPUT"
@@ -70,11 +70,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            CUDA_VERSION=${{ steps.versions.outputs.CUDA_VERSION }}
-            PYTHON_VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
-            TORCH_VERSION=${{ steps.versions.outputs.TORCH_VERSION }}
-            TRITON_VERSION=${{ steps.versions.outputs.TRITON_VERSION }}
             UBUNTU_VERSION=${{ steps.versions.outputs.UBUNTU_VERSION }}
+            PYTHON_VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }}
@@ -83,23 +80,59 @@ jobs:
         run: |
           docker run --rm \
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }} \
-            bash -c "echo 'Container OK'; python3 --version; uname -a"
+            bash -c "echo 'Container OK'; python3 --version; gcc --version | head -1; cmake --version | head -1"
+
+      - name: Smoke test — compilers
+        run: |
+          docker run --rm \
+            ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }} \
+            bash -c "
+              gcc --version | head -1
+              g++ --version | head -1
+              clang --version | head -1
+              echo 'Compilers OK'
+            "
+
+      - name: Smoke test — OpenMP
+        run: |
+          docker run --rm \
+            ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }} \
+            bash -c "
+              cat > /tmp/omp_test.cpp << 'EOF'
+#include <omp.h>
+#include <cstdio>
+int main() {
+    #pragma omp parallel
+    {
+        #pragma omp single
+        printf(\"Threads: %d\n\", omp_get_num_threads());
+    }
+    return 0;
+}
+EOF
+              g++ -fopenmp /tmp/omp_test.cpp -o /tmp/omp_test
+              /tmp/omp_test
+            "
+
+      - name: Smoke test — MPI
+        run: |
+          docker run --rm \
+            ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }} \
+            bash -c "
+              mpirun --version | head -1
+              mpirun --allow-run-as-root -np 2 /bin/true
+              echo 'MPI OK'
+            "
 
       - name: Smoke test — Python imports
         run: |
           docker run --rm \
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }} \
             bash -c "
-              python3 -c 'import torch; assert torch.__version__ == \"${{ steps.versions.outputs.TORCH_VERSION }}\"'
-              python3 -c 'import triton; print(triton.__version__)'
               python3 -c 'import numpy; print(numpy.__version__)'
+              python3 -c 'import scipy; print(scipy.__version__)'
+              python3 -c 'import pandas; print(pandas.__version__)'
             "
-
-      - name: Smoke test — verify.sh (dry-run)
-        run: |
-          docker run --rm \
-            ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }} \
-            bash /workspace/scripts/verify.sh || true
 
       - name: Push to registry
         if: github.event_name != 'pull_request'
@@ -111,11 +144,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            CUDA_VERSION=${{ steps.versions.outputs.CUDA_VERSION }}
-            PYTHON_VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
-            TORCH_VERSION=${{ steps.versions.outputs.TORCH_VERSION }}
-            TRITON_VERSION=${{ steps.versions.outputs.TRITON_VERSION }}
             UBUNTU_VERSION=${{ steps.versions.outputs.UBUNTU_VERSION }}
+            PYTHON_VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO }}:latest
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.version }}

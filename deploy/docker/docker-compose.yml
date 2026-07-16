@@ -1,24 +1,20 @@
 services:
-  gpu-dev:
-    image: ${IMAGE_NAME:-gpu-infra-template}:${IMAGE_TAG:-cuda12.4-torch2.6}
-    container_name: gpu-infra-dev
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
+  cpu-dev:
+    image: ${IMAGE_NAME:-cpu-infra-template}:${IMAGE_TAG:-cpu-hpc-ubuntu22.04}
+    container_name: cpu-infra-dev
     env_file:
-      - ../../configs/nccl.env
-      - ../../configs/torch.env
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    shm_size: 16gb
+      - ../../configs/openmp.env
+      - ../../configs/mpi.env
+      - ../../configs/hpc.env
+    shm_size: 4gb
     ulimits:
       memlock: -1
       stack: 67108864
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
     volumes:
       - ../../src:/workspace/src
       - ../../scripts:/workspace/scripts

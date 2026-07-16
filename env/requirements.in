@@ -13,9 +13,3 @@ ruff
 mypy
 cmake
 ninja
-
-# Torch ecosystem - keep in sync with env/versions.env
-torch==2.6.0
-torchvision
-torchaudio
-triton==3.2.0

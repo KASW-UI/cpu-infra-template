@@ -1,9 +1,7 @@
 # ── Environment Variables ──────────────────────────────────────────────────────
 
-# CUDA
-export CUDA_HOME=/usr/local/cuda
-export PATH=$CUDA_HOME/bin:$PATH
-export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+# OpenMP / MPI / HPC runtime tuning — prefer configs/ env files inside container
+# export OMP_NUM_THREADS=8
 
 # Python (uv)
 export PATH="$HOME/.local/bin:$PATH"

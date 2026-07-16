@@ -13,16 +13,16 @@ mkdir -p "$SNAPSHOT_DIR" "$LOG_DIR"
 OS_ID=$(cat /etc/os-release 2>/dev/null | grep '^ID=' | cut -d= -f2 | tr -d '"' || echo "unknown")
 OS_VERSION=$(cat /etc/os-release 2>/dev/null | grep '^VERSION_ID=' | cut -d= -f2 | tr -d '"' || echo "unknown")
 KERNEL=$(uname -r)
-DRIVER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
-GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
-GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo "0")
-CUDA_V=$(nvcc --version 2>/dev/null | grep "release" | awk '{print $5}' | tr -d ',' || echo "unknown")
+CPU_MODEL=$(lscpu 2>/dev/null | grep "Model name" | cut -d':' -f2 | xargs || echo "unknown")
+CPU_CORES=$(lscpu 2>/dev/null | grep "^CPU(s):" | awk '{print $2}' || echo "0")
+CPU_SOCKETS=$(lscpu 2>/dev/null | grep "Socket(s):" | awk '{print $2}' || echo "0")
+GCC_V=$(gcc --version 2>/dev/null | head -1 || echo "unknown")
+CLANG_V=$(clang --version 2>/dev/null | head -1 || echo "unknown")
+CMAKE_V=$(cmake --version 2>/dev/null | head -1 || echo "unknown")
 PYTHON_V=$(python --version 2>&1 || echo "unknown")
-TORCH_V=$(python -c "import torch; print(torch.__version__)" 2>/dev/null || echo "unknown")
-TORCH_CUDA=$(python -c "import torch; print(torch.version.cuda)" 2>/dev/null || echo "unknown")
-TRITON_V=$(python -c "import triton; print(triton.__version__)" 2>/dev/null || echo "unknown")
-COMPUTE_CAP=$(python -c "import torch; print(torch.cuda.get_device_capability(0))" 2>/dev/null | tr -d '()' | sed 's/, /./' || echo "unknown")
-NCCL_V=$(dpkg -l 2>/dev/null | grep libnccl-dev | awk '{print $3}' | head -1 || echo "unknown")
+OMP_NUM_THREADS_V=$(python -c "import os; print(os.environ.get('OMP_NUM_THREADS', 'not set'))" 2>/dev/null || echo "unknown")
+OPENBLAS_V=$(dpkg -l 2>/dev/null | grep libopenblas-dev | awk '{print $3}' | head -1 || echo "unknown")
+MPI_V=$(mpirun --version 2>/dev/null | head -1 || echo "unknown")
 IMAGE_DIGEST="${IMAGE_DIGEST:-unknown}"
 BUILD_USER="${BUILD_USER:-$(whoami)}"
 
@@ -37,50 +37,48 @@ python -m pip freeze 2>/dev/null > "$LOG_DIR/pip-freeze.txt" || true
 # ── JSON snapshot ─────────────────────────────────────────────────────────────
 cat > "$SNAPSHOT_DIR/deployment.json" <<JSONEOF
 {
-  "project": "gpu-infra-template",
+  "project": "cpu-infra-template",
   "time": "${TIMESTAMP}",
   "hostname": "${HOSTNAME}",
   "git_commit": "${GIT_COMMIT}",
-  "image": "${IMAGE_NAME:-gpu-infra-template:cuda12.4-torch2.6}",
+  "image": "${IMAGE_NAME:-cpu-infra-template:cpu-hpc-ubuntu22.04}",
   "base_image_digest": "${IMAGE_DIGEST}",
   "os": "${OS_ID} ${OS_VERSION}",
   "kernel": "${KERNEL}",
-  "driver": "${DRIVER}",
-  "gpu_name": "${GPU_NAME}",
-  "gpu_count": ${GPU_COUNT},
-  "gpu_arch": "${COMPUTE_CAP}",
-  "compute_capability": "${COMPUTE_CAP}",
-  "cuda": "${CUDA_V}",
+  "cpu_model": "${CPU_MODEL}",
+  "cpu_cores": ${CPU_CORES},
+  "cpu_sockets": ${CPU_SOCKETS},
+  "gcc": "${GCC_V}",
+  "clang": "${CLANG_V}",
+  "cmake": "${CMAKE_V}",
   "python": "${PYTHON_V}",
-  "torch": "${TORCH_V}",
-  "torch_cuda": "${TORCH_CUDA}",
-  "triton": "${TRITON_V}",
-  "nccl": "${NCCL_V}",
+  "openmp_threads": "${OMP_NUM_THREADS_V}",
+  "openblas": "${OPENBLAS_V}",
+  "mpi": "${MPI_V}",
   "build_user": "${BUILD_USER}"
 }
 JSONEOF
 
 # ── YAML snapshot ─────────────────────────────────────────────────────────────
 cat > "$SNAPSHOT_DIR/deployment.yaml" <<YMLEOF
-project: gpu-infra-template
+project: cpu-infra-template
 time: "${TIMESTAMP}"
 hostname: "${HOSTNAME}"
 git_commit: "${GIT_COMMIT}"
-image: "${IMAGE_NAME:-gpu-infra-template:cuda12.4-torch2.6}"
+image: "${IMAGE_NAME:-cpu-infra-template:cpu-hpc-ubuntu22.04}"
 base_image_digest: "${IMAGE_DIGEST}"
 os: "${OS_ID} ${OS_VERSION}"
 kernel: "${KERNEL}"
-driver: "${DRIVER}"
-gpu_name: "${GPU_NAME}"
-gpu_count: ${GPU_COUNT}
-gpu_arch: "${COMPUTE_CAP}"
-compute_capability: "${COMPUTE_CAP}"
-cuda: "${CUDA_V}"
+cpu_model: "${CPU_MODEL}"
+cpu_cores: ${CPU_CORES}
+cpu_sockets: ${CPU_SOCKETS}
+gcc: "${GCC_V}"
+clang: "${CLANG_V}"
+cmake: "${CMAKE_V}"
 python: "${PYTHON_V}"
-torch: "${TORCH_V}"
-torch_cuda: "${TORCH_CUDA}"
-triton: "${TRITON_V}"
-nccl: "${NCCL_V}"
+openmp_threads: "${OMP_NUM_THREADS_V}"
+openblas: "${OPENBLAS_V}"
+mpi: "${MPI_V}"
 build_user: "${BUILD_USER}"
 YMLEOF
 

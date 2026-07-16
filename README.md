@@ -1,10 +1,10 @@
-# GPU Infrastructure Template
+# CPU HPC Infrastructure Template
 
-> AI Infrastructure Development Template
+> HPC Development Template for ASC / Scientific Computing
 >
-> Docker + CUDA 12.4 + PyTorch 2.6 + Triton 3.2 + Multi-GPU NCCL
+> Docker + GCC/Clang + OpenMP/MPI + OpenBLAS/LAPACK + perf/numactl/hwloc
 >
-> A100 / H100 / L40S / RTX — one command to deploy.
+> One command to deploy a ready-to-use CPU HPC environment.
 
 ---
 
@@ -13,564 +13,206 @@
 ```
 Host (Ubuntu 22.04/24.04)
 │
-├── NVIDIA Driver (>= 550)
-│
 └── Docker Engine
     │
-    └── Container: gpu-infra-dev
+    └── Container: cpu-infra-dev
         │
-        ├── nvidia/cuda:12.4.1-devel-ubuntu22.04
+        ├── ubuntu:22.04
         │
-        ├── Python 3.12.10
-        │   ├── Torch 2.6.0+cu124
-        │   ├── Triton 3.2.0
-        │   └── NumPy / SciPy / pytest / ruff / mypy
+        ├── Compiler Toolchain
+        │   ├── GCC 11 / G++ 11
+        │   ├── Clang 14 / Clang++ 14
+        │   └── GDB / Valgrind / strace
         │
-        ├── NCCL 2.x (multi-GPU)
+        ├── Build System
+        │   ├── CMake
+        │   └── Ninja
         │
-        └── Build toolchain (gcc, clang, cmake, ninja)
+        ├── Parallel Runtime
+        │   ├── OpenMP (libomp)
+        │   └── MPI (OpenMPI)
+        │
+        ├── Math Libraries
+        │   ├── OpenBLAS
+        │   ├── LAPACK
+        │   └── Eigen3
+        │
+        ├── Profiling Tools
+        │   ├── perf
+        │   ├── numactl
+        │   ├── hwloc (lstopo)
+        │   └── likwid
+        │
+        ├── Benchmark Tools
+        │   ├── Google Benchmark
+        │   └── stress-ng
+        │
+        └── Python 3.12 (NumPy / SciPy / Pandas / Matplotlib)
 ```
 
 Version consistency is guaranteed by `env/versions.env` → `Makefile --build-arg` → `Dockerfile`.
 
 ---
 
-# Overview
+## Docker Deployment
 
-This repository bootstraps a modern AI Systems / GPU development environment.
-
-The goal is not simply learning CUDA, but building an environment suitable for studying modern AI Infrastructure projects such as
-
-- CUDA Samples
-- CUTLASS
-- Triton
-- tinygrad
-- llama.cpp
-- FlashAttention
-- NCCL
-- DeepEP
-- vLLM
-- SGLang
-- Megatron-LM
-
-Two deployment modes are supported: **Docker** (recommended) and **bare-metal** (legacy scripts).
-
----
-
-## Docker Deployment (Recommended)
-
-Two modes:
-
-**A. Pull pre-built image from GHCR (fast, ~30s)**
+**Pull pre-built image from GHCR**
 ```bash
-git clone https://github.com/kasw-ui/gpu-infra-template.git
-cd gpu-infra-template
+git clone https://github.com/KASW-UI/cpu-infra-template.git
+cd cpu-infra-template
 
-make pull       # docker pull from ghcr.io (skip 15-30min build)
-make run        # Launch container with all GPUs
+make pull       # docker pull from ghcr.io
+make run        # Launch container
 make shell      # Enter the container
-make verify     # Check nvidia-smi / nvcc / torch / triton / nccl
-make nccl-test  # Run all_reduce_perf bandwidth test
+make verify     # Check compilers / OpenMP / MPI / perf / math libs
+make healthcheck
+make mpi-test   # MPI ring bandwidth test
+make hpc-bench  # OpenBLAS GEMM + OpenMP micro-benchmarks
 make stop       # Stop container
 make clean      # Remove image and container
 ```
 
-**B. Build locally (if you need to customize)**
+**Build locally**
 ```bash
-git clone https://github.com/kasw-ui/gpu-infra-template.git
-cd gpu-infra-template
-
-make build      # Build Docker image with locked versions (~15-30min)
-make run        # Launch container with all GPUs
+make build      # Build Docker image with locked versions
+make run        # Launch container
 make shell      # Enter the container
-make verify     # Check nvidia-smi / nvcc / torch / triton / nccl
-make snapshot   # Generate deployment.json + deployment.yaml
-make nccl-test  # Run all_reduce_perf bandwidth test
+make verify     # Verify environment
+make mpi-test   # Run MPI communication test
+make hpc-bench  # Run HPC micro-benchmarks
 make stop       # Stop container
 make clean      # Remove image and container
 ```
 
-The image locks the entire software stack:
+---
 
-```
-nvidia/cuda:12.4.1-devel-ubuntu22.04
-  → Python 3.12.10
-    → Torch 2.6.0+cu124
-      → Triton 3.2.0
-```
+## Image Layers
 
-All versions are declared once in `env/versions.env`. The `Makefile` reads them and passes them to Docker via `--build-arg`.
-
-### Multi-GPU NCCL
-
-Edit `configs/nccl.env` to switch between Ethernet and InfiniBand:
-
-```bash
-# Ethernet (default)
-NCCL_SOCKET_IFNAME=eth0
-NCCL_IB_DISABLE=1
-
-# InfiniBand
-NCCL_IB_DISABLE=0
-NCCL_NET_GDR_LEVEL=5
-NCCL_IB_GID_INDEX=3
-```
-
-Then `make nccl-test` to verify GPU-to-GPU bandwidth.
+| Layer | Packages |
+|-------|----------|
+| **Compiler Toolchain** | gcc, g++, clang, clang++, lld, gdb, valgrind |
+| **Build System** | cmake, ninja-build, make, pkg-config |
+| **Parallel Runtime** | libomp-dev, openmpi-bin, libopenmpi-dev |
+| **Math Libraries** | libopenblas-dev, liblapack-dev, libeigen3-dev |
+| **Profiling** | linux-tools-generic (perf), numactl, hwloc, likwid |
+| **Benchmark** | libbenchmark-dev, stress-ng |
+| **Python** | numpy, scipy, pandas, matplotlib, ipython, pytest |
 
 ---
 
-# Supported Platform
+## Makefile Targets
 
-Recommended
-
-- Ubuntu 22.04 / 24.04 LTS
-- NVIDIA RTX 4060 (8GB+)
-- CUDA 12.x
-- Docker
-- Zsh
-- VS Code
-- Warp Terminal
-
-Other NVIDIA GPUs should also work.
+| Target | Description |
+|--------|-------------|
+| `make build` | Build Docker image |
+| `make pull` | Pull pre-built image from GHCR |
+| `make run` | Start container |
+| `make shell` | Enter container bash |
+| `make verify` | Full environment verification |
+| `make healthcheck` | Detailed health check |
+| `make snapshot` | Generate deployment snapshot |
+| `make mpi-test` | MPI ring bandwidth benchmark |
+| `make hpc-bench` | OpenBLAS GEMM + OpenMP benchmarks |
+| `make stop` | Stop container |
+| `make logs` | Tail container logs |
+| `make clean` | Remove container and image |
+| `make lock` | Regenerate requirements.lock |
 
 ---
 
-# Repository Structure
+## GPU vs CPU Infra Mapping
+
+| GPU Infra | CPU Infra |
+|-----------|-----------|
+| CUDA Toolkit | GCC / Clang |
+| nvcc | g++ / clang++ |
+| Nsight Compute/Systems | perf / likwid |
+| cuBLAS | OpenBLAS |
+| CUDA Stream | OpenMP |
+| NCCL | MPI |
+| SM / Warp analysis | Core / Cache analysis |
+| GPU topology (nvidia-smi topo) | hwloc (lstopo) |
+
+---
+
+## Repository Structure
 
 ```
-gpu-infra-template/
+cpu-infra-template/
 │
 ├── docker/
-│   ├── Dockerfile              # Multi-stage build, pinned versions
-│   └── entrypoint.sh           # Source env → exec "$@"
+│   ├── Dockerfile
+│   └── entrypoint.sh
 │
 ├── env/
-│   ├── versions.env            # Single source of truth for all versions
-│   ├── requirements.in         # Top-level Python dependencies
-│   ├── requirements.lock       # uv pip compile (no hash)
-│   └── requirements-hash.lock  # uv pip compile --generate-hashes
+│   ├── versions.env
+│   ├── requirements.in
+│   ├── requirements.lock
+│   └── requirements-hash.lock
 │
 ├── configs/
-│   ├── nccl.env                # NCCL tuning (IB / eth)
-│   ├── docker.env              # Docker runtime env vars
-│   └── torch.env               # PyTorch runtime tuning
+│   ├── openmp.env
+│   ├── mpi.env
+│   └── hpc.env
 │
 ├── scripts/
-│   ├── healthcheck.sh          # Full-stack check (nvidia-smi → triton → nccl)
-│   ├── verify.sh               # Container-aware verification
-│   ├── snapshot.sh             # Generate deployment.json + deployment.yaml
-│   ├── nccl-test.sh            # NCCL bandwidth benchmark
+│   ├── verify.sh
+│   ├── healthcheck.sh
+│   ├── snapshot.sh
+│   ├── mpi-test.sh
+│   ├── hpc-bench.sh
 │   ├── update.sh
 │   ├── cleanup.sh
 │   └── doctor.sh
 │
 ├── deploy/
-│   ├── docker/
-│   │   └── docker-compose.yml  # Multi-GPU deployment manifest
-│   ├── k8s/                    # Reserved for Kubernetes
-│   └── helm/                   # Reserved for Helm charts
+│   └── docker/
+│       └── docker-compose.yml
 │
-├── runtime/
-│   ├── logs/
-│   └── snapshots/
-│
-├── install/                    # Legacy: bare-metal bootstrap scripts
+├── install/                    # Bare-metal bootstrap (legacy)
 │   ├── base.sh
-│   ├── driver.sh
-│   ├── cuda.sh
+│   ├── shell.sh
 │   ├── docker.sh
 │   ├── python.sh
-│   ├── shell.sh
 │   ├── vscode.sh
-│   ├── fonts.sh
-│   └── tools.sh
-│
-├── config/                     # Legacy: dotfiles
-│   ├── .zshrc
-│   ├── .gitconfig
-│   ├── .tmux.conf
-│   ├── .p10k.zsh
-│   ├── exports.zsh
-│   ├── aliases.zsh
-│   └── clang-format
+│   └── fonts.sh
 │
 ├── src/                        # Mount point for source code
 │
-├── Makefile                    # build / run / shell / verify / snapshot / clean
-├── manifest.json               # Auto-generated on make build
-├── .dockerignore
+├── Makefile
+├── bootstrap.sh
+├── workspace.sh
 └── README.md
 ```
 
 ---
 
-# Installation
+## Recommended Hardware
 
-Clone
-
-```bash
-git clone https://github.com/<your-name>/gpu-dev-env.git
-
-cd gpu-dev-env
-```
-
-Grant execution permission
-
-```bash
-chmod +x bootstrap.sh
-chmod +x install/*.sh
-chmod +x scripts/*.sh
-```
-
-Run bootstrap
-
-```bash
-./bootstrap.sh
-```
+- x86-64 CPU with AVX2 (Intel Haswell+ / AMD Excavator+)
+- 16GB+ RAM
+- 50GB+ disk
 
 ---
 
-# Installation Order
+## Philosophy
 
-The recommended installation sequence is
+Do not learn HPC by reading textbooks only.
 
-```
-Base Packages
-        │
-        ▼
-Docker
-        │
-        ▼
-Python (uv)
-        │
-        ▼
-VS Code
-        │
-        ▼
-NVIDIA Driver
-        │
-        ▼
-CUDA Toolkit
-        │
-        ▼
-Development Tools
-        │
-        ▼
-Verify
-```
-
----
-
-# Driver Installation
-
-Install NVIDIA Driver
-
-```bash
-./install/driver.sh
-```
-
-Reboot
-
-```bash
-sudo reboot
-```
-
----
-
-# CUDA Installation
-
-After reboot
-
-```bash
-./install/cuda.sh
-```
-
-Verify
-
-```bash
-nvidia-smi
-
-nvcc --version
-```
-
----
-
-# Docker
-
-Install Docker
-
-```bash
-./install/docker.sh
-```
-
-Verify
-
-```bash
-docker --version
-```
-
----
-
-# Python Environment
-
-Install
-
-```bash
-./install/python.sh
-```
-
-This script installs
-
-- uv
-- Python virtual environment
-- PyTorch
-- Triton
-- NumPy
-- SciPy
-- IPython
-- pytest
-
-Workspace
+Learn HPC by measuring real hardware.
 
 ```
-~/workspace/ai-infra
+Compiler (gcc/clang)
+    ↓
+Parallel (OpenMP / MPI)
+    ↓
+Profiling (perf / likwid)
+    ↓
+Optimize (cache / NUMA / SIMD)
+    ↓
+Benchmark (GEMM / Stencil / Reduction)
 ```
 
----
+HPC is a systems engineering discipline.
 
-# Development Tools
-
-Install
-
-```bash
-./install/tools.sh
-```
-
-Repositories
-
-- CUDA Samples
-- CUTLASS
-- tinygrad
-- Triton
-- llama.cpp
-- FlashAttention
-- NCCL
-- vLLM
-- Megatron-LM
-- SGLang
-
-Directory
-
-```
-~/workspace
-```
-
----
-
-# Verification
-
-Run
-
-```bash
-./scripts/verify.sh
-```
-
-Checks
-
-- NVIDIA Driver
-- CUDA
-- nvcc
-- Docker
-- Git
-- CMake
-- Clang
-- Python
-- uv
-- PyTorch
-- Triton
-- Nsight
-
----
-
-# Update
-
-Update packages
-
-```bash
-./scripts/update.sh
-```
-
----
-
-# Cleanup
-
-Remove cache
-
-```bash
-./scripts/cleanup.sh
-```
-
----
-
-# Workspace Layout
-
-```
-~/workspace
-│
-├── cuda-samples
-├── cutlass
-├── tinygrad
-├── triton
-├── llama.cpp
-├── flash-attention
-├── nccl
-├── vllm
-├── Megatron-LM
-├── sglang
-│
-├── datasets
-├── models
-├── notes
-├── scripts
-└── tmp
-```
-
----
-
-# Learning Roadmap
-
-Recommended order
-
-```
-CUDA Samples
-        │
-        ▼
-CUTLASS
-        │
-        ▼
-Triton
-        │
-        ▼
-tinygrad
-        │
-        ▼
-llama.cpp
-        │
-        ▼
-FlashAttention
-        │
-        ▼
-vLLM
-        │
-        ▼
-NCCL
-        │
-        ▼
-DeepEP
-        │
-        ▼
-Megatron-LM
-        │
-        ▼
-SGLang
-```
-
----
-
-# Recommended Editor
-
-Visual Studio Code
-
-Extensions
-
-- C/C++
-- CMake Tools
-- clangd
-- Python
-- Docker
-- GitLens
-- Continue (optional)
-
-Terminal
-
-- Warp
-
----
-
-# Recommended Hardware
-
-Minimum
-
-- RTX 3060 12GB
-
-Recommended
-
-- RTX 4060
-- RTX 4070
-- RTX 4080
-- RTX 4090
-
----
-
-# Future Plans
-
-- TensorRT-LLM
-- DeepEP
-- MSCCL
-- ROCm Support
-- Multi-GPU Support
-- Cluster Bootstrap
-- Slurm Integration
-
----
-
-# License
-
-MIT
-
----
-
-# Philosophy
-
-Do not learn CUDA by reading documentation only.
-
-Learn CUDA by understanding real systems.
-
-```
-CUDA Samples
-
-↓
-
-CUTLASS
-
-↓
-
-Triton
-
-↓
-
-FlashAttention
-
-↓
-
-vLLM
-
-↓
-
-Megatron
-
-↓
-
-SGLang
-```
-
-Modern AI Infrastructure is a systems engineering discipline.
-
-Build systems.
-
-Read source code.
-
-Measure performance.
-
-Understand why they are designed this way.
+Build systems. Read source code. Measure performance. Understand why they are designed this way.
