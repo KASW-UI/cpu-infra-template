@@ -71,6 +71,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             UBUNTU_VERSION=${{ steps.versions.outputs.UBUNTU_VERSION }}
+            PYTHON_VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.sha }}
@@ -129,6 +130,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             UBUNTU_VERSION=${{ steps.versions.outputs.UBUNTU_VERSION }}
+            PYTHON_VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO }}:latest
             ${{ env.REGISTRY }}/${{ env.REPO }}:${{ steps.tags.outputs.version }}
