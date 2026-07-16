@@ -44,8 +44,11 @@ RUN LIKWID_VERSION=5.3.0 && \
     curl -fsSL "https://github.com/RRZE-HPC/likwid/archive/refs/tags/v${LIKWID_VERSION}.tar.gz" -o /tmp/likwid.tar.gz && \
     tar -xzf /tmp/likwid.tar.gz -C /tmp && \
     cd /tmp/likwid-${LIKWID_VERSION} && \
+    sed -i 's/^BUILD_DAEMON.*/BUILD_DAEMON=false/' config.mk 2>/dev/null; \
+    sed -i 's/^BUILD_FREQ.*/BUILD_FREQ=false/' config.mk 2>/dev/null; \
     make -j$(nproc) && \
-    make install && \
+    make install PREFIX=/usr/local && \
+    ldconfig && \
     rm -rf /tmp/likwid*
 
 RUN groupadd -g 1000 dev && \
